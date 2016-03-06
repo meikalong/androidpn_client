@@ -97,7 +97,8 @@ public class NotificationService extends Service {
 			if (sharedPrefs.contains(Constants.EMULATOR_DEVICE_ID)) {
 				deviceId = sharedPrefs.getString(Constants.EMULATOR_DEVICE_ID, "");
 			} else {
-				deviceId = (new StringBuilder("EMU")).append((new Random(System.currentTimeMillis())).nextLong()).toString();
+				deviceId = (new StringBuilder("EMU")).append((new Random(System.currentTimeMillis())).nextLong())
+						.toString();
 				editor.putString(Constants.EMULATOR_DEVICE_ID, deviceId);
 				editor.commit();
 			}
@@ -241,8 +242,8 @@ public class NotificationService extends Service {
 
 		public Future<?> submit(Runnable task) {
 			Future<?> result = null;
-			if (!notificationService.getExecutorService().isTerminated() && !notificationService.getExecutorService().isShutdown()
-					&& task != null) {
+			if (!notificationService.getExecutorService().isTerminated()
+					&& !notificationService.getExecutorService().isShutdown() && task != null) {
 				result = notificationService.getExecutorService().submit(task);
 			}
 			return result;
