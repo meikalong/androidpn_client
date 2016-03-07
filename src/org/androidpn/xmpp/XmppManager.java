@@ -21,6 +21,7 @@ import java.util.UUID;
 import java.util.concurrent.Future;
 
 import org.androidpn.client.NotificationService;
+import org.androidpn.local.MyApplication;
 import org.androidpn.util.Constants;
 import org.androidpn.util.LogUtil;
 import org.jivesoftware.smack.ConnectionConfiguration;
@@ -265,6 +266,24 @@ public class XmppManager {
 		editor.commit();
 	}
 
+	public void sendPacket(final Packet packet) {
+		if (connection.isConnected()) {
+			MyApplication.handler.sendMessage("发送消息");
+			connection.sendPacket(packet);
+		} else {
+			MyApplication.handler.sendMessage("您没有连接到服务器");
+			connect();
+			addTask(new Runnable() {
+
+				@Override
+				public void run() {
+					MyApplication.handler.sendMessage("登录成功，开始发送消息");
+					connection.sendPacket(packet);
+				}
+			});
+		}
+	}
+
 	/**
 	 * A runnable task to connect the server.
 	 */
@@ -278,6 +297,7 @@ public class XmppManager {
 
 		public void run() {
 			Log.i(LOGTAG, "ConnectTask.run()...");
+			MyApplication.handler.sendMessage("连接到服务器");
 
 			if (!xmppManager.isConnected()) {
 				// Create the configuration for this new connection
@@ -294,19 +314,21 @@ public class XmppManager {
 					// Connect to the server
 					connection.connect();
 					Log.i(LOGTAG, "XMPP connected successfully");
+					MyApplication.handler.sendMessage("连接成功");
 
 					// packet provider
-					ProviderManager.getInstance().addIQProvider("notification", "androidpn:iq:notification",
-							new NotificationIQProvider());
+					ProviderManager.getInstance().addIQProvider("notification", "androidpn:iq:notification", new NotificationIQProvider());
 
 				} catch (XMPPException e) {
 					Log.e(LOGTAG, "XMPP connection failed", e);
+					MyApplication.handler.sendMessage("连接服务器失败");
 				}
 
 				xmppManager.runTask();
 
 			} else {
 				Log.i(LOGTAG, "XMPP connected already");
+				MyApplication.handler.sendMessage("已经和服务器链接");
 				xmppManager.runTask();
 			}
 		}
@@ -325,6 +347,7 @@ public class XmppManager {
 
 		public void run() {
 			Log.i(LOGTAG, "RegisterTask.run()...");
+			MyApplication.handler.sendMessage("开始注册");
 
 			if (!xmppManager.isRegistered()) {
 				final String newUsername = newRandomUUID();
@@ -332,8 +355,7 @@ public class XmppManager {
 
 				Registration registration = new Registration();
 
-				PacketFilter packetFilter = new AndFilter(new PacketIDFilter(registration.getPacketID()),
-						new PacketTypeFilter(IQ.class));
+				PacketFilter packetFilter = new AndFilter(new PacketIDFilter(registration.getPacketID()), new PacketTypeFilter(IQ.class));
 
 				PacketListener packetListener = new PacketListener() {
 
@@ -345,8 +367,7 @@ public class XmppManager {
 							IQ response = (IQ) packet;
 							if (response.getType() == IQ.Type.ERROR) {
 								if (!response.getError().toString().contains("409")) {
-									Log.e(LOGTAG, "Unknown error while registering XMPP account! "
-											+ response.getError().getCondition());
+									Log.e(LOGTAG, "Unknown error while registering XMPP account! " + response.getError().getCondition());
 								}
 							} else if (response.getType() == IQ.Type.RESULT) {
 								xmppManager.setUsername(newUsername);
@@ -359,6 +380,7 @@ public class XmppManager {
 								editor.putString(Constants.XMPP_PASSWORD, newPassword);
 								editor.commit();
 								Log.i(LOGTAG, "Account registered successfully");
+								MyApplication.handler.sendMessage("注册成功");
 								xmppManager.runTask();
 							}
 						}
@@ -368,18 +390,13 @@ public class XmppManager {
 				connection.addPacketListener(packetListener, packetFilter);
 
 				registration.setType(IQ.Type.SET);
-				// registration.setTo(xmppHost);
-				// Map<String, String> attributes = new HashMap<String,
-				// String>();
-				// attributes.put("username", rUsername);
-				// attributes.put("password", rPassword);
-				// registration.setAttributes(attributes);
 				registration.addAttribute("username", newUsername);
 				registration.addAttribute("password", newPassword);
 				connection.sendPacket(registration);
 
 			} else {
 				Log.i(LOGTAG, "Account registered already");
+				MyApplication.handler.sendMessage("以及注册");
 				xmppManager.runTask();
 			}
 		}
@@ -398,15 +415,16 @@ public class XmppManager {
 
 		public void run() {
 			Log.i(LOGTAG, "LoginTask.run()...");
+			MyApplication.handler.sendMessage("开始登录");
 
 			if (!xmppManager.isAuthenticated()) {
 				Log.d(LOGTAG, "username=" + username);
 				Log.d(LOGTAG, "password=" + password);
 
 				try {
-					xmppManager.getConnection().login(xmppManager.getUsername(), xmppManager.getPassword(),
-							XMPP_RESOURCE_NAME);
+					xmppManager.getConnection().login(xmppManager.getUsername(), xmppManager.getPassword(), XMPP_RESOURCE_NAME);
 					Log.d(LOGTAG, "Loggedn in successfully");
+					MyApplication.handler.sendMessage("登录成功");
 
 					// connection listener
 					if (xmppManager.getConnectionListener() != null) {
@@ -422,6 +440,7 @@ public class XmppManager {
 					getConnection().startKeepAliveThread();
 
 				} catch (XMPPException e) {
+					MyApplication.handler.sendMessage("登录失败");
 					Log.e(LOGTAG, "LoginTask.run()... xmpp error");
 					Log.e(LOGTAG, "Failed to login to xmpp server. Caused by: " + e.getMessage());
 					String INVALID_CREDENTIALS_ERROR_CODE = "401";
@@ -433,6 +452,7 @@ public class XmppManager {
 					xmppManager.startReconnectionThread();
 
 				} catch (Exception e) {
+					MyApplication.handler.sendMessage("登录失败");
 					Log.e(LOGTAG, "LoginTask.run()... other error");
 					Log.e(LOGTAG, "Failed to login to xmpp server. Caused by: " + e.getMessage());
 					xmppManager.startReconnectionThread();
@@ -441,6 +461,7 @@ public class XmppManager {
 				xmppManager.runTask();
 			} else {
 				Log.i(LOGTAG, "Logged in already");
+				MyApplication.handler.sendMessage("已经登录");
 				xmppManager.runTask();
 			}
 

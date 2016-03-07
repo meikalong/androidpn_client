@@ -32,6 +32,7 @@ import android.util.Log;
 public final class NotificationReceiver extends BroadcastReceiver {
 
 	private static final String LOGTAG = LogUtil.makeLogTag(NotificationReceiver.class);
+	private NotificationReceiverResult result;
 
 	// private NotificationService notificationService;
 
@@ -63,11 +64,29 @@ public final class NotificationReceiver extends BroadcastReceiver {
 			Log.d(LOGTAG, "notificationMessage=" + notificationMessage);
 			Log.d(LOGTAG, "notificationUri=" + notificationUri);
 
-			Notifier notifier = new Notifier(context);
-			notifier.notify(notificationId, notificationApiKey, notificationTitle, notificationMessage, notificationUri, notificationFrom,
-					packetId);
+			boolean flag = true;
+			if (result != null) {
+				flag = result.result(intent);
+			}
+			if (flag) {
+				Notifier notifier = new Notifier(context);
+				notifier.notify(notificationId, notificationApiKey, notificationTitle, notificationMessage, notificationUri,
+						notificationFrom, packetId);
+			}
 		}
 
+	}
+
+	public NotificationReceiverResult getResult() {
+		return result;
+	}
+
+	public void setResult(NotificationReceiverResult result) {
+		this.result = result;
+	}
+
+	public interface NotificationReceiverResult {
+		boolean result(Intent intent);
 	}
 
 }

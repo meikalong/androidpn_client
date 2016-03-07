@@ -1,28 +1,25 @@
 package org.androidpn.activity;
 
+import org.androidpn.client.NotificationReceiver;
+import org.androidpn.client.NotificationReceiver.NotificationReceiverResult;
 import org.androidpn.demoapp.R;
 import org.androidpn.packet.Chat;
 import org.androidpn.util.Constants;
 import org.androidpn.xmpp.XmppManager;
-import org.jivesoftware.smack.PacketListener;
-import org.jivesoftware.smack.XMPPConnection;
-import org.jivesoftware.smack.filter.AndFilter;
-import org.jivesoftware.smack.filter.PacketFilter;
-import org.jivesoftware.smack.filter.PacketIDFilter;
-import org.jivesoftware.smack.filter.PacketTypeFilter;
 import org.jivesoftware.smack.packet.IQ;
-import org.jivesoftware.smack.packet.Packet;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.TextView;
 
-public class ChatActivity extends Activity {
+public class ChatActivity extends Activity implements NotificationReceiverResult {
 	private Button sendBtn;
-	private TextView nickname, content;
+	private TextView nickname, content, name, message;
+	private XmppManager xmppManager;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -32,10 +29,26 @@ public class ChatActivity extends Activity {
 		initView();
 	}
 
+	@Override
+	protected void onResume() {
+		super.onResume();
+		NotificationReceiver receiver = (NotificationReceiver) Constants.notificationService.getNotificationReceiver();
+		receiver.setResult(this);
+	}
+
+	@Override
+	protected void onPause() {
+		super.onPause();
+		NotificationReceiver receiver = (NotificationReceiver) Constants.notificationService.getNotificationReceiver();
+		receiver.setResult(null);
+	}
+
 	private void initView() {
 		sendBtn = (Button) findViewById(R.id.send);
 		nickname = (TextView) findViewById(R.id.nickname);
 		content = (TextView) findViewById(R.id.content);
+		name = (TextView) findViewById(R.id.name);
+		message = (TextView) findViewById(R.id.message);
 
 		sendBtn.setOnClickListener(new OnClickListener() {
 
@@ -43,29 +56,25 @@ public class ChatActivity extends Activity {
 			public void onClick(View v) {
 				String name = nickname.getText().toString();
 				String c = content.getText().toString();
-				XmppManager xmppManager = Constants.xmppManager;
+				xmppManager = Constants.xmppManager;
 
 				Chat chat = new Chat();
 
-				PacketFilter packetFilter = new AndFilter(new PacketIDFilter(chat.getPacketID()), new PacketTypeFilter(
-						IQ.class));
-
-				XMPPConnection connection = xmppManager.getConnection();
-				connection.addPacketListener(packetListener, packetFilter);
-
-				chat.setType(IQ.Type.RESULT);
+				chat.setType(IQ.Type.SEND);
 				chat.addAttribute("content", c);
 				chat.addAttribute("nickname", name);
 
-				connection.sendPacket(chat);
+				xmppManager.sendPacket(chat);
 			}
 		});
 	}
 
-	private PacketListener packetListener = new PacketListener() {
-
-		public void processPacket(Packet packet) {
-			System.out.println(">>>>>>>>>>>>>>>>" + packet);
-		}
-	};
+	@Override
+	public boolean result(Intent intent) {
+		String notificationTitle = intent.getStringExtra(Constants.NOTIFICATION_TITLE);
+		String notificationMessage = intent.getStringExtra(Constants.NOTIFICATION_MESSAGE);
+		name.setText(notificationTitle);
+		message.setText(notificationMessage);
+		return false;
+	}
 }

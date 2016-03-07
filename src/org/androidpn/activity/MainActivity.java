@@ -57,10 +57,6 @@ public class MainActivity extends Activity {
 			}
 		});
 
-		// Start the service
-		ServiceManager serviceManager = new ServiceManager(this);
-		serviceManager.setNotificationIcon(R.drawable.notification);
-		serviceManager.startService();
 	}
 
 }
