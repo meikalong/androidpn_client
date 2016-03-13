@@ -88,7 +88,7 @@ public class XmppManager {
 
 	private Thread reconnection;
 
-	private SendMsg sendMsg;
+	private LoginListener loginListener;
 
 	public XmppManager(NotificationService notificationService) {
 		context = notificationService;
@@ -272,15 +272,15 @@ public class XmppManager {
 	}
 
 	public void sendPacket(final Packet packet) {
-		if (connection.isConnected()) {
+		if (isAuthenticated()) {
 			MyApplication.handler.sendMessage("发送消息");
 			connection.sendPacket(packet);
 		} else {
 			MyApplication.handler.sendMessage("您没有连接到服务器");
-			sendMsg = new SendMsg() {
+			loginListener = new LoginListener() {
 
 				@Override
-				public void send() {
+				public void loginSuccess() {
 					sendPacket(packet);
 				}
 			};
@@ -354,7 +354,12 @@ public class XmppManager {
 			Log.i(LOGTAG, "RegisterTask.run()...");
 			MyApplication.handler.sendMessage("开始注册");
 
-			if (!xmppManager.isRegistered() && xmppManager.isConnected()) {
+			if (!xmppManager.isConnected()) {
+				MyApplication.handler.sendMessage("没有连接到服务器，注册失败");
+				xmppManager.runTask();
+				return;
+			}
+			if (!xmppManager.isRegistered()) {
 				final String newUsername = newRandomUUID();
 				final String newPassword = newRandomUUID();
 
@@ -449,6 +454,7 @@ public class XmppManager {
 
 					getConnection().startKeepAliveThread();
 
+					loginSuccess();
 				} catch (XMPPException e) {
 					MyApplication.handler.sendMessage("登录失败");
 					Log.e(LOGTAG, "LoginTask.run()... xmpp error");
@@ -470,26 +476,25 @@ public class XmppManager {
 
 				xmppManager.runTask();
 
-				send();
 			} else {
 				Log.i(LOGTAG, "Logged in already");
 				MyApplication.handler.sendMessage("已经登录");
 				xmppManager.runTask();
-				send();
+				loginSuccess();
 			}
 
 		}
 	}
 
-	private void send() {
-		if (sendMsg != null) {
-			sendMsg.send();
-			sendMsg = null;
+	private void loginSuccess() {
+		if (loginListener != null) {
+			loginListener.loginSuccess();
+			loginListener = null;
 		}
 	}
 
-	private interface SendMsg {
-		void send();
+	private interface LoginListener {
+		void loginSuccess();
 	}
 
 }
