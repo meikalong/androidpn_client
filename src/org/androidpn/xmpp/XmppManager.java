@@ -88,6 +88,8 @@ public class XmppManager {
 
 	private Thread reconnection;
 
+	private SendMsg sendMsg;
+
 	public XmppManager(NotificationService notificationService) {
 		context = notificationService;
 		taskSubmitter = notificationService.getTaskSubmitter();
@@ -202,6 +204,7 @@ public class XmppManager {
 	public void runTask() {
 		Log.d(LOGTAG, "runTask()...");
 		synchronized (taskList) {
+			System.out.println(">>>>>>>>>>>>>>>>>>runTask>>>>>" + taskList.size());
 			running = false;
 			futureTask = null;
 			if (!taskList.isEmpty()) {
@@ -247,6 +250,7 @@ public class XmppManager {
 		taskTracker.increase();
 		synchronized (taskList) {
 			if (taskList.isEmpty() && !running) {
+				System.out.println(">>>>>>>>>>>>>>>>>>addTask>>>>submit");
 				running = true;
 				futureTask = taskSubmitter.submit(runnable);
 				if (futureTask == null) {
@@ -255,6 +259,7 @@ public class XmppManager {
 			} else {
 				taskList.add(runnable);
 			}
+			System.out.println(">>>>>>>>>>>>>>>>>>addTask>>>>" + taskList.size());
 		}
 		Log.d(LOGTAG, "addTask(runnable)... done");
 	}
@@ -272,15 +277,14 @@ public class XmppManager {
 			connection.sendPacket(packet);
 		} else {
 			MyApplication.handler.sendMessage("您没有连接到服务器");
-			connect();
-			addTask(new Runnable() {
+			sendMsg = new SendMsg() {
 
 				@Override
-				public void run() {
-					MyApplication.handler.sendMessage("登录成功，开始发送消息");
-					connection.sendPacket(packet);
+				public void send() {
+					sendPacket(packet);
 				}
-			});
+			};
+			connect();
 		}
 	}
 
@@ -317,7 +321,8 @@ public class XmppManager {
 					MyApplication.handler.sendMessage("连接成功");
 
 					// packet provider
-					ProviderManager.getInstance().addIQProvider("notification", "androidpn:iq:notification", new NotificationIQProvider());
+					ProviderManager.getInstance().addIQProvider("notification", "androidpn:iq:notification",
+							new NotificationIQProvider());
 
 				} catch (XMPPException e) {
 					Log.e(LOGTAG, "XMPP connection failed", e);
@@ -349,13 +354,14 @@ public class XmppManager {
 			Log.i(LOGTAG, "RegisterTask.run()...");
 			MyApplication.handler.sendMessage("开始注册");
 
-			if (!xmppManager.isRegistered()) {
+			if (!xmppManager.isRegistered() && xmppManager.isConnected()) {
 				final String newUsername = newRandomUUID();
 				final String newPassword = newRandomUUID();
 
 				Registration registration = new Registration();
 
-				PacketFilter packetFilter = new AndFilter(new PacketIDFilter(registration.getPacketID()), new PacketTypeFilter(IQ.class));
+				PacketFilter packetFilter = new AndFilter(new PacketIDFilter(registration.getPacketID()),
+						new PacketTypeFilter(IQ.class));
 
 				PacketListener packetListener = new PacketListener() {
 
@@ -367,8 +373,10 @@ public class XmppManager {
 							IQ response = (IQ) packet;
 							if (response.getType() == IQ.Type.ERROR) {
 								if (!response.getError().toString().contains("409")) {
-									Log.e(LOGTAG, "Unknown error while registering XMPP account! " + response.getError().getCondition());
+									Log.e(LOGTAG, "Unknown error while registering XMPP account! "
+											+ response.getError().getCondition());
 								}
+								MyApplication.handler.sendMessage("注册失败");
 							} else if (response.getType() == IQ.Type.RESULT) {
 								xmppManager.setUsername(newUsername);
 								xmppManager.setPassword(newPassword);
@@ -381,9 +389,10 @@ public class XmppManager {
 								editor.commit();
 								Log.i(LOGTAG, "Account registered successfully");
 								MyApplication.handler.sendMessage("注册成功");
-								xmppManager.runTask();
 							}
 						}
+
+						xmppManager.runTask();
 					}
 				};
 
@@ -396,7 +405,7 @@ public class XmppManager {
 
 			} else {
 				Log.i(LOGTAG, "Account registered already");
-				MyApplication.handler.sendMessage("以及注册");
+				MyApplication.handler.sendMessage("已经注册");
 				xmppManager.runTask();
 			}
 		}
@@ -422,7 +431,8 @@ public class XmppManager {
 				Log.d(LOGTAG, "password=" + password);
 
 				try {
-					xmppManager.getConnection().login(xmppManager.getUsername(), xmppManager.getPassword(), XMPP_RESOURCE_NAME);
+					xmppManager.getConnection().login(xmppManager.getUsername(), xmppManager.getPassword(),
+							XMPP_RESOURCE_NAME);
 					Log.d(LOGTAG, "Loggedn in successfully");
 					MyApplication.handler.sendMessage("登录成功");
 
@@ -459,13 +469,27 @@ public class XmppManager {
 				}
 
 				xmppManager.runTask();
+
+				send();
 			} else {
 				Log.i(LOGTAG, "Logged in already");
 				MyApplication.handler.sendMessage("已经登录");
 				xmppManager.runTask();
+				send();
 			}
 
 		}
+	}
+
+	private void send() {
+		if (sendMsg != null) {
+			sendMsg.send();
+			sendMsg = null;
+		}
+	}
+
+	private interface SendMsg {
+		void send();
 	}
 
 }
