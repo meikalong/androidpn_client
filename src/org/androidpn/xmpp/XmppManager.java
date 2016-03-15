@@ -321,8 +321,7 @@ public class XmppManager {
 					MyApplication.handler.sendMessage("Á¬½Ó³É¹¦");
 
 					// packet provider
-					ProviderManager.getInstance().addIQProvider("notification", "androidpn:iq:notification",
-							new NotificationIQProvider());
+					ProviderManager.getInstance().addIQProvider("notification", "androidpn:iq:notification", new NotificationIQProvider());
 
 				} catch (XMPPException e) {
 					Log.e(LOGTAG, "XMPP connection failed", e);
@@ -365,8 +364,7 @@ public class XmppManager {
 
 				Registration registration = new Registration();
 
-				PacketFilter packetFilter = new AndFilter(new PacketIDFilter(registration.getPacketID()),
-						new PacketTypeFilter(IQ.class));
+				PacketFilter packetFilter = new AndFilter(new PacketIDFilter(registration.getPacketID()), new PacketTypeFilter(IQ.class));
 
 				PacketListener packetListener = new PacketListener() {
 
@@ -378,8 +376,7 @@ public class XmppManager {
 							IQ response = (IQ) packet;
 							if (response.getType() == IQ.Type.ERROR) {
 								if (!response.getError().toString().contains("409")) {
-									Log.e(LOGTAG, "Unknown error while registering XMPP account! "
-											+ response.getError().getCondition());
+									Log.e(LOGTAG, "Unknown error while registering XMPP account! " + response.getError().getCondition());
 								}
 								MyApplication.handler.sendMessage("×¢²áÊ§°Ü");
 							} else if (response.getType() == IQ.Type.RESULT) {
@@ -436,8 +433,7 @@ public class XmppManager {
 				Log.d(LOGTAG, "password=" + password);
 
 				try {
-					xmppManager.getConnection().login(xmppManager.getUsername(), xmppManager.getPassword(),
-							XMPP_RESOURCE_NAME);
+					xmppManager.getConnection().login(xmppManager.getUsername(), xmppManager.getPassword(), XMPP_RESOURCE_NAME);
 					Log.d(LOGTAG, "Loggedn in successfully");
 					MyApplication.handler.sendMessage("µÇÂ¼³É¹¦");
 
@@ -456,7 +452,7 @@ public class XmppManager {
 
 					loginSuccess();
 				} catch (XMPPException e) {
-					MyApplication.handler.sendMessage("µÇÂ¼Ê§°Ü");
+					MyApplication.handler.sendMessage("µÇÂ¼Ê§°Ü:XMPPException");
 					Log.e(LOGTAG, "LoginTask.run()... xmpp error");
 					Log.e(LOGTAG, "Failed to login to xmpp server. Caused by: " + e.getMessage());
 					String INVALID_CREDENTIALS_ERROR_CODE = "401";
@@ -468,13 +464,13 @@ public class XmppManager {
 					xmppManager.startReconnectionThread();
 
 				} catch (Exception e) {
-					MyApplication.handler.sendMessage("µÇÂ¼Ê§°Ü");
+					MyApplication.handler.sendMessage("µÇÂ¼Ê§°Ü:Exception");
 					Log.e(LOGTAG, "LoginTask.run()... other error");
 					Log.e(LOGTAG, "Failed to login to xmpp server. Caused by: " + e.getMessage());
 					xmppManager.startReconnectionThread();
+				} finally {
+					xmppManager.runTask();
 				}
-
-				xmppManager.runTask();
 
 			} else {
 				Log.i(LOGTAG, "Logged in already");
